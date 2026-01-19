@@ -44,21 +44,35 @@ foreach ($url in $typeDict["URL"]) {
     }
 }
 
+$ipList = $typeDict["IP"] | Where-Object { $_ } | ForEach-Object { "`"$_`"" }
+$domainList = $typeDict["Domain"] | Where-Object { $_ } | ForEach-Object { "`"$_`"" }
 
-if ($typeDict["IP"].Count -gt 0) {
-    $ipList = $typeDict["IP"] | ForEach-Object { "`"$_`"" }
-    $ipQuery = $ipList -join " or "
-    Write-Output "IP Search Query - Firewall Log (Index: filebeat-*):"
-    Write-Output "source.ip: ($ipQuery) or destination.ip: ($ipQuery)"
+$ipQuery = $ipList -join " or "
+$domainQuery = $domainList -join " or "
+
+if ($ipList.Count -gt 0 -or $domainList.Count -gt 0) {
+    Write-Output "Firewall Log Search (Index: filebeat-*):"
+    $firewallParts = @()
+    if ($ipList.Count -gt 0) {
+        $firewallParts += "(source.ip: ($ipQuery) or destination.ip: ($ipQuery))"
+    }
+    if ($domainList.Count -gt 0) {
+        $firewallParts += "((tags: paloalto and Firewall.type: THREAT and Threat.name: URL-filtering) or (tagscls: fortinet and fortinet.firewall.type: utm and fortinet.firewall.subtype: (app-ctrl or webfilter))) and url.domain: ($domainQuery)"
+    }
+    if ($firewallParts.Count -gt 0) {
+        Write-Output ($firewallParts -join " or ")
+    }
+    Write-Output ""
 }
 
-if ($typeDict["Domain"].Count -gt 0) {
-    $domainList = $typeDict["Domain"] | ForEach-Object { "`"$_`"" }
-    $domainQuery = $domainList -join " or "
-    Write-Output "`nDomain Search Query - Proxy Log (Index: filebeat-*):"
+if ($domainList.Count -gt 0) {
+    Write-Output "Proxy Log Search (Index: filebeat-*):"
     Write-Output "observer.product: `"Web Security`" and destination.domain: ($domainQuery)"
-    Write-Output "`nDomain Search Query - DNS Log (Index: filebeat-* and packetbeat-*): "
-    Write-Output "`dns.question.name: ($domainQuery)"
-    Write-Output "`nDomain Search Query - Firewall Log (Index: filebeat-*): "
-    Write-Output "((tags: paloalto and Firewall.type: THREAT and Threat.name: URL-filtering) or (tagscls: fortinet and fortinet.firewall.type: utm and fortinet.firewall.subtype: (app-ctrl or webfilter))) and url.domain: ($domainQuery)"
+    Write-Output ""
+}
+
+if ($domainList.Count -gt 0) {
+    Write-Output "DNS Log Search (Index: filebeat-* and packetbeat-*):"
+    Write-Output "dns.question.name: ($domainQuery)"
+    Write-Output ""
 }
