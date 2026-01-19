@@ -29,8 +29,16 @@ $typeDict.URL | Where-Object { $_ } | ForEach-Object {
     }
 }
 
+
+$whitelistPath = Join-Path -Path $PSScriptRoot -ChildPath 'DomainWhitelist.txt'
+$whitelist = @()
+if (Test-Path $whitelistPath) {
+    $whitelist = Get-Content $whitelistPath | Where-Object { $_ -and -not $_.StartsWith('#') } | ForEach-Object { $_.Trim() }
+}
+
+$filteredDomains = $typeDict.Domain | Where-Object { $_ -and ($whitelist -notcontains $_) }
 $ipList = $typeDict.IP | Where-Object { $_ } | ForEach-Object { '"' + $_ + '"' }
-$domainList = $typeDict.Domain | Where-Object { $_ } | ForEach-Object { '"*' + $_ + '*"' }
+$domainList = $filteredDomains | ForEach-Object { '"*' + $_ + '*"' }
 $ipQuery = $ipList -join ' or '
 $domainQuery = $domainList -join ' or '
 
